@@ -2,6 +2,8 @@ address admin {
 module GameShowdown {
     use StarcoinFramework::Account;
     use StarcoinFramework::Signer;
+    use StarcoinFramework::Token;
+    use StarcoinFramework::Event;
     use StarcoinFramework::Errors;
     use SFC::PseudoRandom;
 
@@ -14,66 +16,42 @@ module GameShowdown {
         bank: Token::Token<T>
     }
 
-    struct SendTokenEvent has store, drop {
+    struct CheckEvent has store, drop {
         amount: u128,
-        from: address,
-        to: address,
-        token_type: Token::TokenCode
-    }
-
-    struct WithdrawTokenEvent has store, drop {
-        amount: u128,
-        from: address,
-        to: address,
-        token_type: Token::TokenCode
-    }
-
-    struct DepositTokenEvent has store, drop {
-        amount: u128,
-        from: address,
-        to: address,
+        result: bool,
+        input: bool,
         token_type: Token::TokenCode
     }
 
     struct BankEvent<phantom T: store> has store, key {
-        send_token_event_handler: Event::EventHandle<SendTokenEvent>,
-        withdraw_token_event_handler: Event::EventHandle<WithdrawTokenEvent>,
-        deposit_token_event_handler: Event::EventHandle<DepositTokenEvent>,
+        check_event: Event::EventHandle<CheckEvent>,
     }
 
 
     public(script) fun init_bank<TokenType: store>(signer: signer, amount: u128) {
         let account = &signer;
         let user_addr = Signer::address_of(account);
-        assert!(user_addr == DEFAULT_ADMIN, 10003);
         assert!(! exists<Bank<TokenType>>(user_addr), 10003);
         assert!(Account::balance<TokenType>(user_addr) >= amount, 10004);
         let token = Account::withdraw<TokenType>(account, amount);
         move_to(account, Bank<TokenType>{
             bank: token
         });
-
-        move_to(account, BankEvent<TokenType>{
-            send_token_event_handler: Event::new_event_handle<SendTokenEvent>(account),
-            withdraw_token_event_handler: Event::new_event_handle<WithdrawTokenEvent>(account),
-            deposit_token_event_handler: Event::new_event_handle<DepositTokenEvent>(account),
-        });
     }
 
     /// admin withdraw from bank
-    public(script)  fun withdraw<TokenType: store>(signer: signer, amount: u128) acquires Bank, BankEvent {
+    public(script) fun withdraw<TokenType: store>(signer: signer, amount: u128) acquires Bank {
         let account = &signer;
         let user_addr = Signer::address_of(account);
         assert!(user_addr == DEFAULT_ADMIN, 10003);
-        assert!(exists<Bank<TokenType>>(user_addr), 1000310);
+        assert!(exists<Bank<TokenType>>(user_addr), 10004);
         let bank = borrow_global_mut<Bank<TokenType>>(user_addr);
         let token = Token::withdraw<TokenType>(&mut bank.bank, amount);
         Account::deposit<TokenType>(user_addr, token);
     }
 
 
-
-    fun win_token<TokenType: store>(signer: signer, amount: u128) acquires Bank, BankEvent {
+    fun win_token<TokenType: store>(signer: signer, amount: u128) acquires Bank {
         let account = &signer;
         let user_addr = Signer::address_of(account);
         assert!(exists<Bank<TokenType>>(user_addr), 1000310);
@@ -82,7 +60,7 @@ module GameShowdown {
         Account::deposit<TokenType>(user_addr, token);
     }
 
-    fun loss_token<TokenType: store>(signer: signer, amount: u128) acquires Bank, BankEvent {
+    fun loss_token<TokenType: store>(signer: signer, amount: u128) acquires Bank {
         let account = &signer;
         let user_addr = Signer::address_of(account);
         let token = Account::withdraw<TokenType>(account, amount);
@@ -109,7 +87,16 @@ module GameShowdown {
             win_token<TokenType>(_account, amount)
         }else {
             loss_token<TokenType>(_account, amount)
-        }
+        };
+        let bank_event = borrow_global_mut<BankEvent<TokenType>>(DEFAULT_ADMIN);
+
+
+        Event::emit_event(&mut bank_event.check_event, CheckEvent{
+            amount,
+            result,
+            input,
+            token_type: Token::token_code<TokenType>()
+        });
     }
 
     fun getRandBool(): bool {
