@@ -21,7 +21,7 @@ module GameShowdown {
         check_event: Event::EventHandle<CheckEvent>,
     }
 
-    /// @admin init back
+    /// @admin init bank
     public(script) fun init_bank<TokenType: store>(signer: signer, amount: u128) {
         let account = &signer;
         let signer_addr = Signer::address_of(account);
