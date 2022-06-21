@@ -78,9 +78,9 @@ module GameShowdown {
     public(script) fun check<TokenType: store>(_account: signer, amount: u128, input: bool) acquires Bank, BankEvent {
         let signer_addr = Signer::address_of(&_account);
 
-        assert!(Account::balance<TokenType>(signer_addr) < amount, Errors::custom(INVALID_SIGNER_BALANCE));
+        assert!(Account::balance<TokenType>(signer_addr) > amount, Errors::custom(INVALID_SIGNER_BALANCE));
         // can't all in admin balance  max only   1/10  every times
-        assert!(Account::balance<TokenType>(DEFAULT_ADMIN) < amount * 10, Errors::custom(INVALID_CONTRACT_BALANCE));
+        assert!(Account::balance<TokenType>(DEFAULT_ADMIN) >= amount * 10, Errors::custom(INVALID_CONTRACT_BALANCE));
 
         let result = getRandBool();
         if (result == input) {
