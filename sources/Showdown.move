@@ -34,6 +34,7 @@ module GameShowdown {
         move_to(account, Bank<TokenType>{
             bank: token
         });
+        
 
         move_to(account, BankEvent<TokenType>{
             check_event: Event::new_event_handle<CheckEvent>(account),
